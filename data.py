@@ -12,20 +12,35 @@ from torchvision.datasets.utils import download_and_extract_archive
 
 
 class _Ham10kDataset(Dataset):
-    def __init__(self, df):
+    def __init__(self, df, augment=False):
         self._df = df
 
-        self._transforms = transforms.Compose(
-            [
-                # transforms.Resize(265),
-                # transforms.CenterCrop(224),
-                transforms.Resize((224, 224)),
-                transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                ),
-            ]
-        )
+        if augment:
+            self._transforms = transforms.Compose(
+                [
+                    transforms.RandomResizedCrop((224, 224), scale=(0.4, 1.0), ratio=(3/4, 4/3)),
+                    transforms.RandomAffine(degrees=90, scale=(0.8, 1.2), shear=20),
+                    transforms.RandomVerticalFlip(p=0.5),
+                    transforms.RandomHorizontalFlip(p=0.5),
+                    transforms.ColorJitter(brightness=(0.7, 1.3), contrast=(0.7, 1.3), saturation=(0.7, 1.3), hue=(-0.1, +0.1)),
+                    transforms.ToTensor(),
+                    transforms.Normalize(
+                        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                    ),
+                ]
+            )
+        else:
+            self._transforms = transforms.Compose(
+                [
+                    transforms.Resize(224),
+                    transforms.CenterCrop(224),
+                    transforms.ToTensor(),
+                    transforms.Normalize(
+                        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                    ),
+                ]
+            )
+
 
     def __len__(self):
         return len(self._df)
@@ -110,7 +125,7 @@ class Ham10kDataModule(LightningDataModule):
 
     def train_dataloader(self):
         assert self._prepared
-        dataset = _Ham10kDataset(self._df.query("split=='training'"))
+        dataset = _Ham10kDataset(self._df.query("split=='training'"), augment=True)
         return DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
 
     def val_dataloader(self):
