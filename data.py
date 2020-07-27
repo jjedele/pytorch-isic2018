@@ -39,21 +39,6 @@ class _Ham10kDataset(Dataset):
 
         return self._transforms(img), rec["class"]
 
-    @property
-    def class_weights(self):
-        counts = self.labels.dx.value_counts()
-
-        weights = pd.Series(dtype=float)
-
-        for leason_type in counts.keys():
-            others = [t for t in counts.keys() if t != leason_type]
-            other_counts = counts[others]
-            total = other_counts.product()
-            weights[leason_type] = total / counts.sum()
-
-        weights /= weights.sum()
-        return torch.Tensor([weights[c] for c in self.classes])
-
 
 _TRAIN_DATA_URL = "https://isic-challenge-data.s3.amazonaws.com/2018/ISIC2018_Task3_Training_Input.zip"
 _LABEL_DATA_URL = "https://isic-challenge-data.s3.amazonaws.com/2018/ISIC2018_Task3_Training_GroundTruth.zip"
@@ -138,6 +123,21 @@ class Ham10kDataModule(LightningDataModule):
         dataset = _Ham10kDataset(self._df.query("split=='test'"))
         return DataLoader(dataset, batch_size=self.batch_size)
 
+    def class_weights(self, split="training"):
+        assert self._prepared
+        counts = self._df.query(f"split=='{split}'")["class"].value_counts()
+
+        weights = pd.Series([0 for _ in range(len(counts))])
+
+        for leason_type in counts.keys():
+            others = [t for t in counts.keys() if t != leason_type]
+            other_counts = counts[others]
+            total = other_counts.product()
+            weights[leason_type] = total / counts.sum()
+
+        weights /= weights.sum()
+        return torch.Tensor(weights.values)
+
 
 
 if __name__ == "__main__":
@@ -151,6 +151,7 @@ if __name__ == "__main__":
     #print(ds[0])
     h10km = Ham10kDataModule()
     h10km.prepare_data()
+    print(h10km.class_weights())
     train = h10km.train_dataloader()
 
     for i in train:

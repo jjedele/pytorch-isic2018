@@ -58,6 +58,9 @@ class Ham10kModel(pl.LightningModule):
             #num_classes=7,#len(train_dataset.class_weights),
         )
         self.net.fc = torch.nn.Linear(512, 7)
+
+        data_module.prepare_data()
+        self.loss = torch.nn.CrossEntropyLoss(weight=data_module.class_weights())
         self.metric = Accuracy()
 
     def forward(self, x):
@@ -66,7 +69,7 @@ class Ham10kModel(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_pred = self(x)
-        loss = F.cross_entropy(y_pred, y)
+        loss = self.loss(y_pred, y)
         acc = self.metric(y_pred, y)
         logs = {"accuracy": acc}
         return {"loss": loss, "log": logs, "progress_bar": logs}
@@ -74,7 +77,7 @@ class Ham10kModel(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_pred = self(x)
-        loss = F.cross_entropy(y_pred, y)
+        loss = self.loss(y_pred, y)
         acc = self.metric(y_pred, y)
         cm = confusion_matrix(torch.argmax(y_pred, axis=1), y, num_classes=7)
 
