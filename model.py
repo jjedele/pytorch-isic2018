@@ -1,26 +1,24 @@
-from functools import reduce
 import os
+from functools import reduce
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
-from pytorch_lightning.metrics import Accuracy
-from pytorch_lightning.metrics.functional.classification import get_num_classes
 import torch
 from PIL import Image
+from pytorch_lightning.metrics import Accuracy
+from pytorch_lightning.metrics.functional.classification import get_num_classes
 from torch import nn, optim
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from torchvision import models
 
 from data import Ham10kDataModule
+from gradient_statsd import Client
 
 
-def balanced_accuracy(
-        cm: torch.Tensor,
-        adjust: bool = False
-) -> torch.Tensor:
+def balanced_accuracy(cm: torch.Tensor, adjust: bool = False) -> torch.Tensor:
     per_class = torch.diag(cm) / torch.sum(cm, axis=1)
 
     score = torch.mean(per_class)
@@ -34,9 +32,7 @@ def balanced_accuracy(
 
 
 def confusion_matrix(
-        pred: torch.Tensor,
-        target: torch.Tensor,
-        num_classes: int = None
+    pred: torch.Tensor, target: torch.Tensor, num_classes: int = None
 ) -> torch.Tensor:
     num_classes = get_num_classes(pred, target, num_classes)
 
@@ -55,13 +51,15 @@ class Ham10kModel(pl.LightningModule):
         self.net = models.resnet18(
             pretrained=True,
             progress=True,
-            #num_classes=7,#len(train_dataset.class_weights),
+            # num_classes=7,#len(train_dataset.class_weights),
         )
         self.net.fc = torch.nn.Linear(512, 7)
 
         data_module.prepare_data()
         self.loss = torch.nn.CrossEntropyLoss(weight=data_module.class_weights())
         self.metric = Accuracy()
+
+        self._stats_client = Client()
 
     def forward(self, x):
         return self.net(x)
@@ -91,10 +89,14 @@ class Ham10kModel(pl.LightningModule):
         data_obj = {"val_loss": avg_loss, "val_acc": avg_acc, "bacc": bacc}
         data_obj["log"] = {"val_loss": avg_loss, "val_acc": avg_acc, "bacc": bacc}
         print("VAL", data_obj)
+        self._stats_client.gauge("val_acc", avg_acc.cpu().numpy())
+        self._stats_client.gauge("val_acc_bal", bacc.cpu().numpy())
         return data_obj
 
     def configure_optimizers(self):
-        optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9, weight_decay=1e-5, nesterov=True)
+        optimizer = optim.SGD(
+            model.parameters(), lr=0.001, momentum=0.9, weight_decay=1e-5, nesterov=True
+        )
         return optimizer
 
     def prepare_data(self):
