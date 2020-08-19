@@ -89,8 +89,11 @@ class Ham10kModel(pl.LightningModule):
         data_obj = {"val_loss": avg_loss, "val_acc": avg_acc, "bacc": bacc}
         data_obj["log"] = {"val_loss": avg_loss, "val_acc": avg_acc, "bacc": bacc}
         print("VAL", data_obj)
-        self._stats_client.gauge("val_acc", avg_acc.cpu().numpy())
-        self._stats_client.gauge("val_acc_bal", bacc.cpu().numpy())
+        vac = int(float(avg_acc.cpu().numpy()) * 100)
+        vacb = int(float(bacc.cpu().numpy()) * 100)
+        print("VAL2", vac, vacb)
+        self._stats_client.gauge("val_acc", vac)
+        self._stats_client.gauge("val_acc_bal", vacb)
         return data_obj
 
     def configure_optimizers(self):
