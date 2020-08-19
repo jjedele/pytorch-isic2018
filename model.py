@@ -111,5 +111,5 @@ if __name__ == "__main__":
     data_module = Ham10kDataModule()
     model = Ham10kModel(data_module)
 
-    trainer = pl.Trainer()
+    trainer = pl.Trainer(gpus=1)
     trainer.fit(model)
