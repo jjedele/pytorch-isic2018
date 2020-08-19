@@ -1,4 +1,3 @@
-pytorch
 torchvision
 pytorch-lightning
 pytorch-lightning-bolts
