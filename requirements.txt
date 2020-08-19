@@ -2,3 +2,4 @@ torchvision
 pytorch-lightning
 pytorch-lightning-bolts
 pycm
+gradient-statsd
